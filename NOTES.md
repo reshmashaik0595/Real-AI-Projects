@@ -9,6 +9,8 @@
 8. python -m pip install openai
 9. ollama stop qwen3:4b
 10. ollama rm qwen3:4b
+11. deactivate
+12. mv .venv .venv-broken
 
 ## TECH STACK:
 - python3       - Language

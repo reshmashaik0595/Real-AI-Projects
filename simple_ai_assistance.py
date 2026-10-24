@@ -13,6 +13,13 @@ client = OpenAI(
 
 messages = []
 
+messages.append(
+    {
+        "role" : "system",
+        "content" : "Act like a very humble agent and respond always under 20 words"
+    }
+)
+
 while True:
     user_input = input("\nRESHMA_SHAIK:")
 
@@ -21,8 +28,8 @@ while True:
 
     messages.append(
         {
-            'role':'user', #helps to identify the speaker ['user'(human),'assistant'(model's own replires),'system'(Hidden instructions)]
-            'content':user_input
+            'role' : 'user', #helps to identify the speaker ['user'(human),'assistant'(model's own replires),'system'(Hidden instructions)]
+            'content' : user_input
         }
     )
 
@@ -33,12 +40,11 @@ while True:
 
     messages.append(
         {
-            'role':response.choices[0].message.role, #helps to identify the speaker ['user'(human),'assistant'(model's own replires),'system'(Hidden instructions)]
-            'content':response.choices[0].message.content
+            'role' : response.choices[0].message.role, #helps to identify the speaker ['user'(human),'assistant'(model's own replires),'system'(Hidden instructions)]
+            'content' : response.choices[0].message.content
         }
     )
 
     print("ASSISTANT: " + response.choices[0].message.content) # ollama -> JSON -> OpenAI -> PythonObject
-    # print(response.choices[0].message.role)
-
+    print(response.choices[0].message.role)
 
