@@ -1,54 +1,54 @@
 #!/usr/bin/env python3
+"""Simple AI assistant that can call local Python tools during chat."""
 
-from openai import OpenAI
-from dotenv import load_dotenv
-from tools import TOOLS, FUNCTION_NAME_TO_FUNCTION_MAP
 import json
 import os
 
-# Read local configuration from .env so connection details stay out of the code.
+from dotenv import load_dotenv
+from openai import OpenAI
+
+from tools import FUNCTION_NAME_TO_FUNCTION_MAP, TOOLS
+
+# Load local configuration from .env so connection details stay out of source code.
 load_dotenv()
 
 client = OpenAI(
-    base_url = os.getenv("BASE_URL"),
-    api_key = os.getenv("MODEL")
+    base_url=os.getenv("BASE_URL"),
+    api_key=os.getenv("MODEL"),
 )
 
 # Keep the full conversation so each request includes earlier turns.
 messages = []
 
-# Set behavior instructions once at the start of the conversation.
+# Give the assistant a short personality and response limit for this project.
 messages.append(
     {
-        "role" : "system",
-        "content" : "Act like a very humble agent and respond always under 20 words"
+        "role": "system",
+        "content": "Act like a very humble agent and respond always under 20 words.",
     }
 )
 
-# Continue chatting until the user enters an exit word.
+# Continue chatting until the user chooses to exit.
 while True:
     user_input = input("\nRESHMA_SHAIK:")
 
-    if user_input.lower() in ['exit','quit','bye','goodbye']:
+    if user_input.lower() in ["exit", "quit", "bye", "goodbye"]:
         break
 
     # Add the user's turn before sending the conversation to the model.
-    messages.append(
-        {
-            'role' : 'user',
-            'content' : user_input
-        }
-    )
+    messages.append({"role": "user", "content": user_input})
 
-    # Request a response using the conversation history and configured model.
+    # Request a response using conversation history and available tools.
     response = client.chat.completions.create(
         model=os.getenv("MODEL"),
         messages=messages,
-        tools=TOOLS
+        tools=TOOLS,
     )
 
     msg = response.choices[0].message
+
     if msg.tool_calls:
+        # When the model asks for a tool call, run it and send the result back.
         messages.append(msg)
 
         for tool_call in msg.tool_calls:
@@ -60,28 +60,25 @@ while True:
 
             messages.append(
                 {
-                    "role":"tool",
-                    "tool_id":tool_call.id,
-                    "content":str(result)
+                    "role": "tool",
+                    "tool_id": tool_call.id,
+                    "content": str(result),
                 }
             )
 
-        # 2nd call to LLM Model
+        # Second model call after tool execution to synthesize the final answer.
         response = client.chat.completions.create(
             model=os.getenv("MODEL"),
-            messages=messages
+            messages=messages,
         )
-
         msg = response.choices[0].message
 
-    # Save the reply so it becomes part of the context for the next turn.
-    messages.append(
-        {
-            'role' : response.choices[0].message.role,
-            'content' : response.choices[0].message.content
-        }
-    )
+    # Save the assistant response so it becomes part of the next turn's context.
+    messages.append({
+        "role": msg.role,
+        "content": msg.content,
+    })
 
-    # Display the assistant's reply and its message role.
-    print("ASSISTANT: " + response.choices[0].message.content)
-    print(response.choices[0].message.role)
+    # Display the assistant's reply and role to the user.
+    print("ASSISTANT: " + msg.content)
+    print(msg.role)
