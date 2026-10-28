@@ -12,6 +12,9 @@ from tools import FUNCTION_NAME_TO_FUNCTION_MAP, TOOLS
 # Load local configuration from .env so connection details stay out of source code.
 load_dotenv()
 
+# Limit how many model/tool-call cycles are allowed for each user message.
+MAX_RUN_STEPS = 2
+
 client = OpenAI(
     base_url=os.getenv("BASE_URL"),
     api_key=os.getenv("MODEL"),
@@ -38,25 +41,33 @@ while True:
     # Add the user's turn before sending the conversation to the model.
     messages.append({"role": "user", "content": user_input})
 
-    # Request a response using conversation history and available tools.
-    response = client.chat.completions.create(
-        model=os.getenv("MODEL"),
-        messages=messages,
-        tools=TOOLS,
-    )
+    for steps in range(MAX_RUN_STEPS):
 
-    msg = response.choices[0].message
+        # Request a response using conversation history and available tools.
+        response = client.chat.completions.create(
+            model=os.getenv("MODEL"),
+            messages=messages,
+            tools=TOOLS,
+        )
 
-    if msg.tool_calls:
+        msg = response.choices[0].message
+
+        if not msg.tool_calls:
+            # The assistant has a final response, so no more tool cycles are needed.
+            break
+
         # When the model asks for a tool call, run it and send the result back.
         messages.append(msg)
 
         for tool_call in msg.tool_calls:
             func_name = tool_call.function.name
-            func_args = json.loads(tool_call.function.arguments or "{}")
 
-            fn = FUNCTION_NAME_TO_FUNCTION_MAP[func_name]
-            result = fn(**func_args)
+            try:
+                func_args = json.loads(tool_call.function.arguments or "{}")
+                fn = FUNCTION_NAME_TO_FUNCTION_MAP[func_name]
+                result = fn(**func_args)
+            except Exception as e:
+                result = f"Error while running {func_name} : {e}"
 
             messages.append(
                 {
@@ -65,13 +76,15 @@ while True:
                     "content": str(result),
                 }
             )
-
-        # Second model call after tool execution to synthesize the final answer.
-        response = client.chat.completions.create(
-            model=os.getenv("MODEL"),
-            messages=messages,
-        )
-        msg = response.choices[0].message
+    else:
+        # The loop ended without a final response because the cycle limit was reached.
+        fallback = "I couldn't complete your request within the allowed steps. Please try again."
+        messages.append({
+            "role": "assistant",
+            "content": fallback,
+        })
+        print("ASSISTANT: " + fallback)
+        continue
 
     # Save the assistant response so it becomes part of the next turn's context.
     messages.append({

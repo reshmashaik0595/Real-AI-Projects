@@ -22,6 +22,8 @@ def get_city_weather(city):
     response.raise_for_status()
     return response.text
 
+def get_city():
+    return "Hyderabad"
 
 # OpenAI function-calling schema: the model sees these names and arguments.
 TOOLS = [
@@ -52,6 +54,17 @@ TOOLS = [
                 "required": ["city"]
             }
         }
+    },
+    {
+        "type":"function",
+        "function":{
+            "name":"get_city",
+            "description":"",
+            "parameters":{
+                "type":"object",
+                "properties":{}
+            }
+        }
     }
 ]
 
@@ -59,4 +72,5 @@ TOOLS = [
 FUNCTION_NAME_TO_FUNCTION_MAP = {
     "get_current_time": get_current_time,
     "get_city_weather": get_city_weather,
+    "get_city": get_city
 }
