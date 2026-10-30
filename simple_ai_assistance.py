@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """Simple AI assistant that can call local Python tools during chat."""
 
-import json
+#Standart libraries
 import os
 
+#Third party libraries
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from tools import FUNCTION_NAME_TO_FUNCTION_MAP, TOOLS
+#local modules
+from tools import TOOLS, run_tool
+from utilities.utilities import log
 
 # Load local configuration from .env so connection details stay out of source code.
 load_dotenv()
 
 # Limit how many model/tool-call cycles are allowed for each user message.
-MAX_RUN_STEPS = 2
+MAX_RUN_STEPS = 3
 
 client = OpenAI(
     base_url=os.getenv("BASE_URL"),
@@ -33,7 +36,7 @@ messages.append(
 
 # Continue chatting until the user chooses to exit.
 while True:
-    user_input = input("\nRESHMA_SHAIK:")
+    user_input = input("\n🙋🏻RESHMA_SHAIK: ")
 
     if user_input.lower() in ["exit", "quit", "bye", "goodbye"]:
         break
@@ -41,7 +44,7 @@ while True:
     # Add the user's turn before sending the conversation to the model.
     messages.append({"role": "user", "content": user_input})
 
-    for steps in range(MAX_RUN_STEPS):
+    for step in range(MAX_RUN_STEPS):
 
         # Request a response using conversation history and available tools.
         response = client.chat.completions.create(
@@ -56,19 +59,12 @@ while True:
             # The assistant has a final response, so no more tool cycles are needed.
             break
 
+        log(f"Step {step+1}: model requested {len(msg.tool_calls)} tool call(s)")
         # When the model asks for a tool call, run it and send the result back.
         messages.append(msg)
 
         for tool_call in msg.tool_calls:
-            func_name = tool_call.function.name
-
-            try:
-                func_args = json.loads(tool_call.function.arguments or "{}")
-                fn = FUNCTION_NAME_TO_FUNCTION_MAP[func_name]
-                result = fn(**func_args)
-            except Exception as e:
-                result = f"Error while running {func_name} : {e}"
-
+            result = run_tool(tool_call)
             messages.append(
                 {
                     "role": "tool",
@@ -93,5 +89,5 @@ while True:
     })
 
     # Display the assistant's reply and role to the user.
-    print("ASSISTANT: " + msg.content)
+    print("🤖ASSISTANT: " + msg.content)
     print(msg.role)

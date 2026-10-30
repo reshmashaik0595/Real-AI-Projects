@@ -6,9 +6,9 @@ that the model can discover and invoke during a conversation.
 """
 
 from datetime import datetime
-
+from utilities.utilities import log
 import requests
-
+import json
 
 def get_current_time():
     """Return the current date and time in a human-readable format."""
@@ -74,3 +74,17 @@ FUNCTION_NAME_TO_FUNCTION_MAP = {
     "get_city_weather": get_city_weather,
     "get_city": get_city
 }
+
+def run_tool(tool_call):
+    func_name = tool_call.function.name
+    func_args = {}
+    
+    try:
+        func_args = json.loads(tool_call.function.arguments or "{}")
+        log(f"🔧  {func_name}({func_args})")
+        fn = FUNCTION_NAME_TO_FUNCTION_MAP[func_name]
+        result = fn(**func_args)
+    except Exception as e:
+        result = f"Error while running {func_name} : {e}"
+    log(f"↪️ {result}")
+    return result
